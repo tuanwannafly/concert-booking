@@ -1,8 +1,12 @@
 package com.geekup.concertbooking.config;
 
+import com.geekup.concertbooking.module.auth.JwtAuthFilter;
+import com.geekup.concertbooking.module.auth.UserDetailsServiceImpl;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -12,16 +16,23 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 /**
- * Security config skeleton.
- * JWT filter sẽ được inject sau khi implement auth module.
- * @EnableMethodSecurity → dùng @PreAuthorize("hasRole('ADMIN')") trên các ops endpoint.
+ * Security config với JWT stateless authentication.
+ *
+ * - PUBLIC_ENDPOINTS: không cần token.
+ * - Mọi request khác: bắt buộc có JWT hợp lệ.
+ * - @EnableMethodSecurity: cho phép @PreAuthorize("hasRole('ADMIN')") trên các endpoint.
  */
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
+@RequiredArgsConstructor
 public class SecurityConfig {
+
+    private final JwtAuthFilter jwtAuthFilter;
+    private final UserDetailsServiceImpl userDetailsService;
 
     private static final String[] PUBLIC_ENDPOINTS = {
         "/api/v1/auth/**",
@@ -37,15 +48,26 @@ public class SecurityConfig {
         http
             .csrf(AbstractHttpConfigurer::disable)
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .authenticationProvider(authenticationProvider())
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
                 .anyRequest().authenticated()
-            );
-
-        // TODO: thêm JwtAuthFilter trước UsernamePasswordAuthenticationFilter
-        //       sau khi implement auth module
+            )
+            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
+    }
+
+    /**
+     * DaoAuthenticationProvider: kết nối UserDetailsService + PasswordEncoder.
+     * AuthenticationManager sẽ dùng provider này để xác thực UsernamePasswordAuthenticationToken.
+     */
+    @Bean
+    public DaoAuthenticationProvider authenticationProvider() {
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
+        provider.setUserDetailsService(userDetailsService);
+        provider.setPasswordEncoder(passwordEncoder());
+        return provider;
     }
 
     @Bean
