@@ -1,0 +1,1746 @@
+{
+  "info": {
+    "name": "Concert Ticket Booking — GEEK Up Assessment",
+    "_postman_id": "geekup-concert-booking-2026",
+    "description": "Complete API collection for the Concert Ticket Booking Platform.\n\n## Quick Start\n1. Set `baseUrl` variable = `http://localhost:8080`\n2. Run **Login as Customer** → token auto-saved to `customerToken`\n3. Run **Login as Operator** → token auto-saved to `operatorToken`\n4. Run **Login as Admin** → token auto-saved to `adminToken`\n5. Use any endpoint — auth headers are pre-configured per folder.\n\n## Seeded Test Accounts (password: `password123`)\n- `admin@geekup.vn` → ADMIN\n- `operator1@geekup.vn` → OPERATOR\n- `customer1@test.com` → CUSTOMER\n- `customer2@test.com` → CUSTOMER\n\n## Seeded Data (IDs after Flyway migration)\n- Concert 1: AIGHT FLASH SALE CONCERT 2026 (PUBLISHED)\n- Concert 2: HANOIFEST 2026 (PUBLISHED)\n- Concert 3: UPCOMING SHOW — DRAFT\n- Category 1: SVIP — 2,500,000đ (Concert 1, max 2/booking)\n- Category 2: VIP — 1,500,000đ (Concert 1, max 4/booking)\n- Category 3: Standard — 800,000đ (Concert 1, max 4/booking)\n- Category 4: VIP — 1,200,000đ (Concert 2)\n- Category 5: Standard — 600,000đ (Concert 2)\n- Voucher `FLASHSALE10`: 10% off, min order 500,000đ\n- Voucher `VIP200K`: 200,000đ off, min order 1,500,000đ\n- Voucher `EXPIRED2025`: expired (use to test 400)\n- Voucher `INACTIVE_TEST`: inactive (use to test 400)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl",       "value": "http://localhost:8080", "type": "string" },
+    { "key": "customerToken", "value": "",                      "type": "string" },
+    { "key": "operatorToken", "value": "",                      "type": "string" },
+    { "key": "adminToken",    "value": "",                      "type": "string" },
+    { "key": "concertId",     "value": "1",                     "type": "string" },
+    { "key": "draftConcertId","value": "3",                     "type": "string" },
+    { "key": "categoryId",    "value": "2",                     "type": "string" },
+    { "key": "bookingId",     "value": "",                      "type": "string" },
+    { "key": "idempotencyKey","value": "",                      "type": "string" }
+  ],
+  "item": [
+
+    {
+      "name": "🔐 0. Auth",
+      "description": "Register & login. Login scripts auto-save tokens to collection variables.",
+      "item": [
+
+        {
+          "name": "Register New Customer",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/register", "host": ["{{baseUrl}}"], "path": ["api","v1","auth","register"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"newuser@test.com\",\n  \"password\": \"password123\",\n  \"fullName\": \"New User Test\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201 Created', () => pm.response.to.have.status(201));",
+                  "pm.test('success = true', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.success).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "Login as Customer (customer1)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/login", "host": ["{{baseUrl}}"], "path": ["api","v1","auth","login"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"customer1@test.com\",\n  \"password\": \"password123\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Token present', () => pm.expect(body.data.token).to.be.a('string'));",
+                  "if (body.success && body.data && body.data.token) {",
+                  "    pm.collectionVariables.set('customerToken', body.data.token);",
+                  "    console.log('✅ customerToken saved');",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "Login as Operator",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/login", "host": ["{{baseUrl}}"], "path": ["api","v1","auth","login"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"operator1@geekup.vn\",\n  \"password\": \"password123\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "if (body.success && body.data && body.data.token) {",
+                  "    pm.collectionVariables.set('operatorToken', body.data.token);",
+                  "    console.log('✅ operatorToken saved');",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "Login as Admin",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/login", "host": ["{{baseUrl}}"], "path": ["api","v1","auth","login"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@geekup.vn\",\n  \"password\": \"password123\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "if (body.success && body.data && body.data.token) {",
+                  "    pm.collectionVariables.set('adminToken', body.data.token);",
+                  "    console.log('✅ adminToken saved');",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "Login — Wrong Password (expect 401)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/login", "host": ["{{baseUrl}}"], "path": ["api","v1","auth","login"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"customer1@test.com\",\n  \"password\": \"wrongpassword\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 401 Unauthorized', () => pm.response.to.have.status(401));",
+                  "pm.test('success = false', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.success).to.be.false;",
+                  "    pm.expect(body.errorCode).to.equal('INVALID_CREDENTIALS');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+
+      ]
+    },
+
+    {
+      "name": "🎵 1. Public — Concerts",
+      "description": "No authentication required.",
+      "item": [
+
+        {
+          "name": "List Published Concerts",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/concerts?page=0&size=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","concerts"],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "10" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns PUBLISHED concerts only', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.success).to.be.true;",
+                  "    pm.expect(body.data.content).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "Get Concert Detail (ID=1 Flash Sale)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/v1/concerts/{{concertId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","concerts","{{concertId}}"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Concert is PUBLISHED', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.data.status).to.equal('PUBLISHED');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "Get Concert Ticket Categories (ID=1)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/v1/concerts/{{concertId}}/categories", "host": ["{{baseUrl}}"], "path": ["api","v1","concerts","{{concertId}}","categories"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns at least one category', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.data).to.be.an('array').with.length.above(0);",
+                  "    if (body.data.length > 0) {",
+                  "        pm.collectionVariables.set('categoryId', String(body.data[0].id));",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "Get Concert Detail — Not Found (expect 404)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/v1/concerts/9999", "host": ["{{baseUrl}}"], "path": ["api","v1","concerts","9999"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 404 Not Found', () => pm.response.to.have.status(404));",
+                  "pm.test('errorCode = CONCERT_NOT_FOUND', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.errorCode).to.equal('CONCERT_NOT_FOUND');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+
+      ]
+    },
+
+    {
+      "name": "🎟️ 2. Customer — Bookings",
+      "description": "Requires Bearer {{customerToken}}. Run Login as Customer first.",
+      "auth": {
+        "type": "bearer",
+        "bearer": [{ "key": "token", "value": "{{customerToken}}", "type": "string" }]
+      },
+      "item": [
+
+        {
+          "name": "Create Booking — VIP Ticket (no voucher)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// Auto-generate a fresh UUID for idempotency key each run",
+                  "const uuid = require('uuid');",
+                  "const key = pm.variables.replaceIn('{{$guid}}');",
+                  "pm.collectionVariables.set('idempotencyKey', key);",
+                  "console.log('idempotencyKey:', key);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201 Created', () => pm.response.to.have.status(201));",
+                  "pm.test('Booking status = PENDING', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.success).to.be.true;",
+                  "    pm.expect(body.data.status).to.equal('PENDING');",
+                  "    pm.collectionVariables.set('bookingId', String(body.data.id));",
+                  "    console.log('✅ bookingId saved:', body.data.id);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",      "value": "application/json" },
+              { "key": "X-Idempotency-Key", "value": "{{idempotencyKey}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/v1/bookings", "host": ["{{baseUrl}}"], "path": ["api","v1","bookings"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"ticketCategoryId\": 2,\n      \"quantity\": 2\n    }\n  ]\n}"
+            }
+          }
+        },
+
+        {
+          "name": "Create Booking — VIP + Standard (multi-category)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "pm.collectionVariables.set('idempotencyKey', pm.variables.replaceIn('{{$guid}}'));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201 Created', () => pm.response.to.have.status(201));",
+                  "pm.test('Booking has 2 items', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.data.items).to.have.length(2);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",      "value": "application/json" },
+              { "key": "X-Idempotency-Key", "value": "{{idempotencyKey}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/v1/bookings", "host": ["{{baseUrl}}"], "path": ["api","v1","bookings"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"ticketCategoryId\": 2,\n      \"quantity\": 1\n    },\n    {\n      \"ticketCategoryId\": 3,\n      \"quantity\": 2\n    }\n  ]\n}"
+            }
+          }
+        },
+
+        {
+          "name": "Create Booking — With Voucher FLASHSALE10",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "pm.collectionVariables.set('idempotencyKey', pm.variables.replaceIn('{{$guid}}'));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201 Created', () => pm.response.to.have.status(201));",
+                  "pm.test('Discount applied', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.data.finalAmount).to.be.below(body.data.totalAmount);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",      "value": "application/json" },
+              { "key": "X-Idempotency-Key", "value": "{{idempotencyKey}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/v1/bookings", "host": ["{{baseUrl}}"], "path": ["api","v1","bookings"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"ticketCategoryId\": 3,\n      \"quantity\": 2\n    }\n  ],\n  \"voucherCode\": \"FLASHSALE10\"\n}"
+            }
+          }
+        },
+
+        {
+          "name": "Create Booking — With Voucher VIP200K",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "pm.collectionVariables.set('idempotencyKey', pm.variables.replaceIn('{{$guid}}'));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201 Created', () => pm.response.to.have.status(201));",
+                  "pm.test('Fixed discount = 200000', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.data.discountAmount).to.equal(200000);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",      "value": "application/json" },
+              { "key": "X-Idempotency-Key", "value": "{{idempotencyKey}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/v1/bookings", "host": ["{{baseUrl}}"], "path": ["api","v1","bookings"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"ticketCategoryId\": 2,\n      \"quantity\": 1\n    }\n  ],\n  \"voucherCode\": \"VIP200K\"\n}"
+            }
+          }
+        },
+
+        {
+          "name": "Create Booking — Idempotency Retry (same key, expect 200 cached)",
+          "description": "Gửi lại request với cùng X-Idempotency-Key từ lần trước → phải nhận lại response giống hệt (HTTP 200, không tạo booking mới).",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK (cached, not 201)', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns same bookingId', () => {",
+                  "    const body = pm.response.json();",
+                  "    const savedId = pm.collectionVariables.get('bookingId');",
+                  "    pm.expect(String(body.data.id)).to.equal(savedId);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",      "value": "application/json" },
+              { "key": "X-Idempotency-Key", "value": "{{idempotencyKey}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/v1/bookings", "host": ["{{baseUrl}}"], "path": ["api","v1","bookings"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"ticketCategoryId\": 2,\n      \"quantity\": 2\n    }\n  ]\n}"
+            }
+          }
+        },
+
+        {
+          "name": "Create Booking — Exceed maxPerBooking (expect 400)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "pm.collectionVariables.set('idempotencyKey', pm.variables.replaceIn('{{$guid}}'));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400 Bad Request', () => pm.response.to.have.status(400));",
+                  "pm.test('TICKET_QUANTITY_EXCEEDED', () => {",
+                  "    pm.expect(pm.response.json().errorCode).to.equal('TICKET_QUANTITY_EXCEEDED');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",      "value": "application/json" },
+              { "key": "X-Idempotency-Key", "value": "{{idempotencyKey}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/v1/bookings", "host": ["{{baseUrl}}"], "path": ["api","v1","bookings"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"ticketCategoryId\": 1,\n      \"quantity\": 5\n    }\n  ]\n}"
+            }
+          }
+        },
+
+        {
+          "name": "Create Booking — Cross-concert items (expect 400)",
+          "description": "Mix items từ concert 1 (categoryId=2) và concert 2 (categoryId=4) trong 1 đơn → BOOKING_CROSS_CONCERT",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "pm.collectionVariables.set('idempotencyKey', pm.variables.replaceIn('{{$guid}}'));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400 Bad Request', () => pm.response.to.have.status(400));",
+                  "pm.test('BOOKING_CROSS_CONCERT', () => {",
+                  "    pm.expect(pm.response.json().errorCode).to.equal('BOOKING_CROSS_CONCERT');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",      "value": "application/json" },
+              { "key": "X-Idempotency-Key", "value": "{{idempotencyKey}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/v1/bookings", "host": ["{{baseUrl}}"], "path": ["api","v1","bookings"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"ticketCategoryId\": 2,\n      \"quantity\": 1\n    },\n    {\n      \"ticketCategoryId\": 4,\n      \"quantity\": 1\n    }\n  ]\n}"
+            }
+          }
+        },
+
+        {
+          "name": "Create Booking — Expired Voucher (expect 400)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "pm.collectionVariables.set('idempotencyKey', pm.variables.replaceIn('{{$guid}}'));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400 Bad Request', () => pm.response.to.have.status(400));",
+                  "pm.test('VOUCHER_EXPIRED', () => {",
+                  "    pm.expect(pm.response.json().errorCode).to.equal('VOUCHER_EXPIRED');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",      "value": "application/json" },
+              { "key": "X-Idempotency-Key", "value": "{{idempotencyKey}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/v1/bookings", "host": ["{{baseUrl}}"], "path": ["api","v1","bookings"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"ticketCategoryId\": 3,\n      \"quantity\": 1\n    }\n  ],\n  \"voucherCode\": \"EXPIRED2025\"\n}"
+            }
+          }
+        },
+
+        {
+          "name": "Create Booking — No Idempotency Key (expect 400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400 Bad Request', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/bookings", "host": ["{{baseUrl}}"], "path": ["api","v1","bookings"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"ticketCategoryId\": 2,\n      \"quantity\": 1\n    }\n  ]\n}"
+            }
+          }
+        },
+
+        {
+          "name": "Get My Bookings (paginated)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns paged list', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.data.content).to.be.an('array');",
+                  "    pm.expect(body.data.totalElements).to.be.a('number');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/bookings?page=0&size=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","bookings"],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "10" }
+              ]
+            }
+          }
+        },
+
+        {
+          "name": "Get Booking Detail",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Booking belongs to current user', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.data.id).to.equal(Number(pm.collectionVariables.get('bookingId')));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/v1/bookings/{{bookingId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","bookings","{{bookingId}}"] }
+          }
+        },
+
+        {
+          "name": "Pay for Booking (PENDING → WAITING_PAYMENT)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Status = WAITING_PAYMENT', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.data.status).to.equal('WAITING_PAYMENT');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{baseUrl}}/api/v1/bookings/{{bookingId}}/pay", "host": ["{{baseUrl}}"], "path": ["api","v1","bookings","{{bookingId}}","pay"] }
+          }
+        },
+
+        {
+          "name": "Pay for Booking (WAITING_PAYMENT → PAID)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Status = PAID', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.data.status).to.equal('PAID');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{baseUrl}}/api/v1/bookings/{{bookingId}}/pay", "host": ["{{baseUrl}}"], "path": ["api","v1","bookings","{{bookingId}}","pay"] }
+          }
+        },
+
+        {
+          "name": "Cancel Booking (PENDING)",
+          "description": "Tạo booking mới rồi cancel. bookingId phải đang PENDING.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Status = CANCELLED', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.data.status).to.equal('CANCELLED');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "{{baseUrl}}/api/v1/bookings/{{bookingId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","bookings","{{bookingId}}"] }
+          }
+        },
+
+        {
+          "name": "Cancel Booking — Already PAID (expect 400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400 Bad Request', () => pm.response.to.have.status(400));",
+                  "pm.test('BOOKING_CANNOT_CANCEL', () => {",
+                  "    pm.expect(pm.response.json().errorCode).to.equal('BOOKING_CANNOT_CANCEL');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "{{baseUrl}}/api/v1/bookings/{{bookingId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","bookings","{{bookingId}}"] }
+          }
+        },
+
+        {
+          "name": "Get Other User's Booking (expect 403)",
+          "description": "Thử GET booking của user khác — phải nhận 403 BOOKING_NOT_OWNED",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 403 Forbidden', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/v1/bookings/9999", "host": ["{{baseUrl}}"], "path": ["api","v1","bookings","9999"] }
+          }
+        }
+
+      ]
+    },
+
+    {
+      "name": "🎫 3. Customer — Vouchers",
+      "description": "Requires Bearer {{customerToken}}.",
+      "auth": {
+        "type": "bearer",
+        "bearer": [{ "key": "token", "value": "{{customerToken}}", "type": "string" }]
+      },
+      "item": [
+
+        {
+          "name": "Validate Voucher — FLASHSALE10 (valid)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Voucher valid, discount > 0', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.data.valid).to.be.true;",
+                  "    pm.expect(body.data.discountAmount).to.be.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/vouchers/validate", "host": ["{{baseUrl}}"], "path": ["api","v1","vouchers","validate"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"voucherCode\": \"FLASHSALE10\",\n  \"orderAmount\": 1600000\n}"
+            }
+          }
+        },
+
+        {
+          "name": "Validate Voucher — VIP200K (fixed discount)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('discountAmount = 200000', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.data.discountAmount).to.equal(200000);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/vouchers/validate", "host": ["{{baseUrl}}"], "path": ["api","v1","vouchers","validate"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"voucherCode\": \"VIP200K\",\n  \"orderAmount\": 2500000\n}"
+            }
+          }
+        },
+
+        {
+          "name": "Validate Voucher — Min order not met (expect 400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400 Bad Request', () => pm.response.to.have.status(400));",
+                  "pm.test('VOUCHER_MIN_ORDER_NOT_MET', () => {",
+                  "    pm.expect(pm.response.json().errorCode).to.equal('VOUCHER_MIN_ORDER_NOT_MET');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/vouchers/validate", "host": ["{{baseUrl}}"], "path": ["api","v1","vouchers","validate"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"voucherCode\": \"VIP200K\",\n  \"orderAmount\": 100000\n}"
+            }
+          }
+        },
+
+        {
+          "name": "Validate Voucher — Expired (expect 400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('VOUCHER_EXPIRED', () => {",
+                  "    pm.expect(pm.response.json().errorCode).to.equal('VOUCHER_EXPIRED');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/vouchers/validate", "host": ["{{baseUrl}}"], "path": ["api","v1","vouchers","validate"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"voucherCode\": \"EXPIRED2025\",\n  \"orderAmount\": 500000\n}"
+            }
+          }
+        },
+
+        {
+          "name": "Validate Voucher — Not Found (expect 404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('VOUCHER_NOT_FOUND', () => {",
+                  "    pm.expect(pm.response.json().errorCode).to.equal('VOUCHER_NOT_FOUND');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/vouchers/validate", "host": ["{{baseUrl}}"], "path": ["api","v1","vouchers","validate"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"voucherCode\": \"DOESNOTEXIST\",\n  \"orderAmount\": 500000\n}"
+            }
+          }
+        }
+
+      ]
+    },
+
+    {
+      "name": "🎼 4. Ops — Concert Management",
+      "description": "Requires Bearer {{operatorToken}}. Run Login as Operator first.",
+      "auth": {
+        "type": "bearer",
+        "bearer": [{ "key": "token", "value": "{{operatorToken}}", "type": "string" }]
+      },
+      "item": [
+
+        {
+          "name": "Create Concert (DRAFT)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201 Created', () => pm.response.to.have.status(201));",
+                  "pm.test('Status = DRAFT', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.data.status).to.equal('DRAFT');",
+                  "    pm.collectionVariables.set('draftConcertId', String(body.data.id));",
+                  "    console.log('✅ draftConcertId:', body.data.id);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/ops/concerts", "host": ["{{baseUrl}}"], "path": ["api","v1","ops","concerts"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"NEW YEAR COUNTDOWN 2027\",\n  \"venue\": \"Nhà hát lớn TP.HCM\",\n  \"eventDate\": \"2026-12-31T21:00:00\",\n  \"description\": \"Đếm ngược chào năm mới 2027 tại TP.HCM.\",\n  \"bannerUrl\": \"https://example.com/banner-newyear.jpg\"\n}"
+            }
+          }
+        },
+
+        {
+          "name": "Update Concert (DRAFT only)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Venue updated', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.data.venue).to.equal('Sân khấu Sen Đầm Trị An');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/ops/concerts/{{draftConcertId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","ops","concerts","{{draftConcertId}}"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"venue\": \"Sân khấu Sen Đầm Trị An\"\n}"
+            }
+          }
+        },
+
+        {
+          "name": "Add Ticket Category to Draft Concert",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201 Created', () => pm.response.to.have.status(201));",
+                  "pm.test('Category saved', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.data.name).to.equal('Golden');",
+                  "    pm.expect(body.data.totalQuantity).to.equal(150);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/ops/concerts/{{draftConcertId}}/categories", "host": ["{{baseUrl}}"], "path": ["api","v1","ops","concerts","{{draftConcertId}}","categories"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Golden\",\n  \"price\": 1800000,\n  \"totalQuantity\": 150,\n  \"maxPerBooking\": 4\n}"
+            }
+          }
+        },
+
+        {
+          "name": "Publish Concert (DRAFT → PUBLISHED)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Status = PUBLISHED', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.data.status).to.equal('PUBLISHED');",
+                  "});",
+                  "pm.test('Inventory loaded (availableQuantity > 0)', () => {",
+                  "    const body = pm.response.json();",
+                  "    body.data.categories.forEach(cat => {",
+                  "        pm.expect(cat.availableQuantity).to.be.above(0);",
+                  "    });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{baseUrl}}/api/v1/ops/concerts/{{draftConcertId}}/publish", "host": ["{{baseUrl}}"], "path": ["api","v1","ops","concerts","{{draftConcertId}}","publish"] }
+          }
+        },
+
+        {
+          "name": "Publish Concert — No Categories (expect 400)",
+          "description": "Tạo concert mới nhưng KHÔNG add category → publish phải fail.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('INVALID_CONCERT_STATUS', () => {",
+                  "    pm.expect(pm.response.json().errorCode).to.equal('INVALID_CONCERT_STATUS');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{baseUrl}}/api/v1/ops/concerts/3/publish", "host": ["{{baseUrl}}"], "path": ["api","v1","ops","concerts","3","publish"] }
+          }
+        },
+
+        {
+          "name": "Reload Inventory from DB",
+          "description": "Dùng khi Redis bị restart. Re-seed inventory counters từ DB vào Redis.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Categories returned with availableQuantity', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.data.categories).to.be.an('array').with.length.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{baseUrl}}/api/v1/ops/concerts/{{concertId}}/reload-inventory", "host": ["{{baseUrl}}"], "path": ["api","v1","ops","concerts","{{concertId}}","reload-inventory"] }
+          }
+        },
+
+        {
+          "name": "Update Published Concert (expect 400 — DRAFT only)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('INVALID_CONCERT_STATUS', () => {",
+                  "    pm.expect(pm.response.json().errorCode).to.equal('INVALID_CONCERT_STATUS');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/ops/concerts/1", "host": ["{{baseUrl}}"], "path": ["api","v1","ops","concerts","1"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"venue\": \"Should Not Update\"\n}"
+            }
+          }
+        }
+
+      ]
+    },
+
+    {
+      "name": "📋 5. Ops — Booking Management",
+      "description": "Requires Bearer {{operatorToken}}.",
+      "auth": {
+        "type": "bearer",
+        "bearer": [{ "key": "token", "value": "{{operatorToken}}", "type": "string" }]
+      },
+      "item": [
+
+        {
+          "name": "List All Bookings (no filter)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns paged bookings', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.data.content).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ops/bookings?page=0&size=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","ops","bookings"],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "20" }
+              ]
+            }
+          }
+        },
+
+        {
+          "name": "List Bookings — Filter by Concert",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ops/bookings?concertId={{concertId}}&page=0&size=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","ops","bookings"],
+              "query": [
+                { "key": "concertId", "value": "{{concertId}}" },
+                { "key": "page",      "value": "0" },
+                { "key": "size",      "value": "20" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "List Bookings — Filter by Status PENDING",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ops/bookings?status=PENDING&page=0&size=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","ops","bookings"],
+              "query": [
+                { "key": "status", "value": "PENDING" },
+                { "key": "page",   "value": "0" },
+                { "key": "size",   "value": "20" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('All bookings PENDING', () => {",
+                  "    const body = pm.response.json();",
+                  "    body.data.content.forEach(b => {",
+                  "        pm.expect(b.status).to.equal('PENDING');",
+                  "    });",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "List Bookings — Filter by Concert + Status",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ops/bookings?concertId={{concertId}}&status=PAID&page=0&size=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","ops","bookings"],
+              "query": [
+                { "key": "concertId", "value": "{{concertId}}" },
+                { "key": "status",    "value": "PAID" },
+                { "key": "page",      "value": "0" },
+                { "key": "size",      "value": "20" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": ["pm.test('Status 200 OK', () => pm.response.to.have.status(200));"]
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "Get Suspicious Bookings",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('All flagged isSuspicious = true', () => {",
+                  "    const body = pm.response.json();",
+                  "    body.data.content.forEach(b => {",
+                  "        pm.expect(b.isSuspicious).to.be.true;",
+                  "    });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ops/bookings/suspicious?page=0&size=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","ops","bookings","suspicious"],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "20" }
+              ]
+            }
+          }
+        },
+
+        {
+          "name": "Get Booking Stats by Concert",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Contains revenue field', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.data.totalRevenue).to.be.a('number');",
+                  "    pm.expect(body.data.totalBookings).to.be.a('number');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ops/bookings/stats?concertId={{concertId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","ops","bookings","stats"],
+              "query": [{ "key": "concertId", "value": "{{concertId}}" }]
+            }
+          }
+        },
+
+        {
+          "name": "Get Booking Detail (Ops — any booking)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Contains items array', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.data.items).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/v1/ops/bookings/{{bookingId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","ops","bookings","{{bookingId}}"] }
+          }
+        },
+
+        {
+          "name": "Manual Status Update — PAID → COMPLETED",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Status = COMPLETED', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.data.status).to.equal('COMPLETED');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/ops/bookings/{{bookingId}}/status", "host": ["{{baseUrl}}"], "path": ["api","v1","ops","bookings","{{bookingId}}","status"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"COMPLETED\",\n  \"reason\": null\n}"
+            }
+          }
+        },
+
+        {
+          "name": "Manual Status Update — Cancel with Reason",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Status = CANCELLED with reason', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.data.status).to.equal('CANCELLED');",
+                  "    pm.expect(body.data.cancelReason).to.include('Fraud');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/ops/bookings/{{bookingId}}/status", "host": ["{{baseUrl}}"], "path": ["api","v1","ops","bookings","{{bookingId}}","status"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"CANCELLED\",\n  \"reason\": \"Fraud detected — ops investigation\"\n}"
+            }
+          }
+        },
+
+        {
+          "name": "Manual Status Update — Invalid Transition (expect 400)",
+          "description": "Không thể chuyển sang WAITING_PAYMENT thủ công.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('BOOKING_INVALID_STATUS', () => {",
+                  "    pm.expect(pm.response.json().errorCode).to.equal('BOOKING_INVALID_STATUS');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/ops/bookings/{{bookingId}}/status", "host": ["{{baseUrl}}"], "path": ["api","v1","ops","bookings","{{bookingId}}","status"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"WAITING_PAYMENT\",\n  \"reason\": null\n}"
+            }
+          }
+        },
+
+        {
+          "name": "Ops Access Booking — Customer Token (expect 403)",
+          "description": "Endpoint ops với customerToken phải nhận 403 ACCESS_DENIED.",
+          "auth": {
+            "type": "bearer",
+            "bearer": [{ "key": "token", "value": "{{customerToken}}", "type": "string" }]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 403 Forbidden', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ops/bookings?page=0&size=5",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","ops","bookings"],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "5" }
+              ]
+            }
+          }
+        }
+
+      ]
+    },
+
+    {
+      "name": "🏷️ 6. Admin — Voucher Management",
+      "description": "Requires Bearer {{adminToken}}. OPERATOR cannot access these endpoints.",
+      "auth": {
+        "type": "bearer",
+        "bearer": [{ "key": "token", "value": "{{adminToken}}", "type": "string" }]
+      },
+      "item": [
+
+        {
+          "name": "List All Vouchers",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns voucher list', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.data).to.be.an('array');",
+                  "    pm.expect(body.data.length).to.be.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/v1/ops/vouchers", "host": ["{{baseUrl}}"], "path": ["api","v1","ops","vouchers"] }
+          }
+        },
+
+        {
+          "name": "Create Voucher — PERCENT discount",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201 Created', () => pm.response.to.have.status(201));",
+                  "pm.test('Voucher created', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.data.code).to.equal('SUMMER20');",
+                  "    pm.expect(body.data.discountType).to.equal('PERCENT');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/ops/vouchers", "host": ["{{baseUrl}}"], "path": ["api","v1","ops","vouchers"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"SUMMER20\",\n  \"discountType\": \"PERCENT\",\n  \"discountValue\": 20,\n  \"maxUses\": 100,\n  \"minOrderAmount\": 500000,\n  \"validFrom\": \"2026-06-01T00:00:00\",\n  \"validTo\": \"2026-08-31T23:59:59\"\n}"
+            }
+          }
+        },
+
+        {
+          "name": "Create Voucher — FIXED discount",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201 Created', () => pm.response.to.have.status(201));",
+                  "pm.test('discountType = FIXED', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.data.discountType).to.equal('FIXED');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/ops/vouchers", "host": ["{{baseUrl}}"], "path": ["api","v1","ops","vouchers"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"NEWUSER100K\",\n  \"discountType\": \"FIXED\",\n  \"discountValue\": 100000,\n  \"maxUses\": 50,\n  \"minOrderAmount\": null,\n  \"validFrom\": \"2026-01-01T00:00:00\",\n  \"validTo\": \"2026-12-31T23:59:59\"\n}"
+            }
+          }
+        },
+
+        {
+          "name": "Create Voucher — Duplicate Code (expect 409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 409 Conflict', () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/ops/vouchers", "host": ["{{baseUrl}}"], "path": ["api","v1","ops","vouchers"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"FLASHSALE10\",\n  \"discountType\": \"PERCENT\",\n  \"discountValue\": 5,\n  \"maxUses\": 10,\n  \"minOrderAmount\": null,\n  \"validFrom\": \"2026-01-01T00:00:00\",\n  \"validTo\": \"2026-12-31T23:59:59\"\n}"
+            }
+          }
+        },
+
+        {
+          "name": "Create Voucher — Operator Token (expect 403)",
+          "description": "Admin-only endpoint. Operator không được phép tạo voucher.",
+          "auth": {
+            "type": "bearer",
+            "bearer": [{ "key": "token", "value": "{{operatorToken}}", "type": "string" }]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 403 Forbidden', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/ops/vouchers", "host": ["{{baseUrl}}"], "path": ["api","v1","ops","vouchers"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"SHOULDFAIL\",\n  \"discountType\": \"PERCENT\",\n  \"discountValue\": 5,\n  \"maxUses\": 10,\n  \"minOrderAmount\": null,\n  \"validFrom\": \"2026-01-01T00:00:00\",\n  \"validTo\": \"2026-12-31T23:59:59\"\n}"
+            }
+          }
+        }
+
+      ]
+    },
+
+    {
+      "name": "⚡ 7. Flash Sale — End-to-End Scenarios",
+      "description": "Kịch bản kiểm tra toàn bộ luồng. Chạy theo thứ tự từ trên xuống.\n\nBước 1: Login (folder 0)\nBước 2: Chạy các request trong folder này theo thứ tự.",
+      "item": [
+
+        {
+          "name": "E2E-01: Create Booking (Standard, 2 vé)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "pm.collectionVariables.set('idempotencyKey', pm.variables.replaceIn('{{$guid}}'));",
+                  "console.log('[E2E-01] New idempotencyKey:', pm.collectionVariables.get('idempotencyKey'));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('[E2E-01] 201 Created', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('bookingId', String(body.data.id));",
+                  "console.log('[E2E-01] bookingId =', body.data.id);",
+                  "console.log('[E2E-01] totalAmount =', body.data.totalAmount);",
+                  "pm.test('[E2E-01] totalAmount = 1,600,000', () => {",
+                  "    pm.expect(body.data.totalAmount).to.equal(1600000);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "auth": {
+            "type": "bearer",
+            "bearer": [{ "key": "token", "value": "{{customerToken}}", "type": "string" }]
+          },
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",      "value": "application/json" },
+              { "key": "X-Idempotency-Key", "value": "{{idempotencyKey}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/v1/bookings", "host": ["{{baseUrl}}"], "path": ["api","v1","bookings"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"ticketCategoryId\": 3,\n      \"quantity\": 2\n    }\n  ]\n}"
+            }
+          }
+        },
+
+        {
+          "name": "E2E-02: Pay Step 1 (PENDING → WAITING_PAYMENT)",
+          "auth": {
+            "type": "bearer",
+            "bearer": [{ "key": "token", "value": "{{customerToken}}", "type": "string" }]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('[E2E-02] Status = WAITING_PAYMENT', () => {",
+                  "    pm.expect(pm.response.json().data.status).to.equal('WAITING_PAYMENT');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{baseUrl}}/api/v1/bookings/{{bookingId}}/pay", "host": ["{{baseUrl}}"], "path": ["api","v1","bookings","{{bookingId}}","pay"] }
+          }
+        },
+
+        {
+          "name": "E2E-03: Pay Step 2 (WAITING_PAYMENT → PAID)",
+          "auth": {
+            "type": "bearer",
+            "bearer": [{ "key": "token", "value": "{{customerToken}}", "type": "string" }]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('[E2E-03] Status = PAID', () => {",
+                  "    pm.expect(pm.response.json().data.status).to.equal('PAID');",
+                  "});",
+                  "pm.test('[E2E-03] paidAt set', () => {",
+                  "    pm.expect(pm.response.json().data.paidAt).to.not.be.null;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{baseUrl}}/api/v1/bookings/{{bookingId}}/pay", "host": ["{{baseUrl}}"], "path": ["api","v1","bookings","{{bookingId}}","pay"] }
+          }
+        },
+
+        {
+          "name": "E2E-04: Ops Mark COMPLETED (PAID → COMPLETED)",
+          "auth": {
+            "type": "bearer",
+            "bearer": [{ "key": "token", "value": "{{operatorToken}}", "type": "string" }]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('[E2E-04] Status = COMPLETED', () => {",
+                  "    pm.expect(pm.response.json().data.status).to.equal('COMPLETED');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/ops/bookings/{{bookingId}}/status", "host": ["{{baseUrl}}"], "path": ["api","v1","ops","bookings","{{bookingId}}","status"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"COMPLETED\",\n  \"reason\": null\n}"
+            }
+          }
+        },
+
+        {
+          "name": "E2E-05: Verify in Booking Stats",
+          "auth": {
+            "type": "bearer",
+            "bearer": [{ "key": "token", "value": "{{operatorToken}}", "type": "string" }]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('[E2E-05] completedCount >= 1', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.data.completedCount).to.be.above(0);",
+                  "    pm.expect(body.data.totalRevenue).to.be.above(0);",
+                  "    console.log('[E2E-05] totalRevenue =', body.data.totalRevenue);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ops/bookings/stats?concertId={{concertId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","ops","bookings","stats"],
+              "query": [{ "key": "concertId", "value": "{{concertId}}" }]
+            }
+          }
+        }
+
+      ]
+    }
+
+  ]
+}

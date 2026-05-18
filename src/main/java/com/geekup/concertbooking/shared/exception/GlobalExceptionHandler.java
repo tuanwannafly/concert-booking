@@ -9,6 +9,8 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingRequestHeaderException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -24,7 +26,7 @@ public class GlobalExceptionHandler {
         log.warn("AppException: [{}] {}", ex.getErrorCode(), ex.getMessage());
         return ResponseEntity
             .status(ex.getHttpStatus())
-            .body(ApiResponse.error(ex.getMessage(), ex.getErrorCode()));
+            .body(ApiResponse.error(ex.getMessage(), ex.getErrorCode().name()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -37,7 +39,20 @@ public class GlobalExceptionHandler {
         });
         return ResponseEntity
             .status(HttpStatus.BAD_REQUEST)
-            .body(ApiResponse.error("Dữ liệu đầu vào không hợp lệ", "VALIDATION_ERROR"));
+            .body(ApiResponse.errorWithData(errors, "Dữ liệu đầu vào không hợp lệ", "VALIDATION_ERROR"));
+    }
+
+    /**
+     * Header bắt buộc bị thiếu — ví dụ: X-Idempotency-Key không có trong request.
+     * Trả về 400 thay vì 500.
+     */
+    @ExceptionHandler(MissingRequestHeaderException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMissingHeader(MissingRequestHeaderException ex) {
+        String message = String.format("Header bắt buộc '%s' không có trong request", ex.getHeaderName());
+        log.warn("MissingRequestHeaderException: {}", message);
+        return ResponseEntity
+            .status(HttpStatus.BAD_REQUEST)
+            .body(ApiResponse.error(message, "MISSING_REQUIRED_HEADER"));
     }
 
     /**
@@ -64,6 +79,14 @@ public class GlobalExceptionHandler {
         return ResponseEntity
             .status(HttpStatus.FORBIDDEN)
             .body(ApiResponse.error(ErrorCode.ACCESS_DENIED.getMessage(), "ACCESS_DENIED"));
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiResponse<Void>> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        String message = String.format("Tham số '%s' không hợp lệ: '%s'", ex.getName(), ex.getValue());
+        return ResponseEntity
+            .status(HttpStatus.BAD_REQUEST)
+            .body(ApiResponse.error(message, "INVALID_PARAMETER"));
     }
 
     @ExceptionHandler(Exception.class)

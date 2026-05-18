@@ -41,7 +41,7 @@ public class Booking {
     private Concert concert;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 30)
+    @Column(nullable = false, length = 30, columnDefinition = "varchar(30)")
     @Builder.Default
     private BookingStatus status = BookingStatus.PENDING;
 
@@ -107,4 +107,6 @@ public class Booking {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    
 }

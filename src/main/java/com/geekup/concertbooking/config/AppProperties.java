@@ -13,7 +13,7 @@ public class AppProperties {
 
     private Jwt jwt = new Jwt();
     private Booking booking = new Booking();
-    private Redis redis = new Redis();
+    private RedisProperties redis = new RedisProperties();
 
     @Getter
     @Setter
@@ -30,9 +30,10 @@ public class AppProperties {
 
     @Getter
     @Setter
-    public static class Redis {
+    public static class RedisProperties {
         private String inventoryKeyPrefix = "inventory:ticket:";
         private String idempotencyKeyPrefix = "idem:booking:";
         private int idempotencyTtlHours = 24;
+        private String voucherLockKeyPrefix = "voucher:lock:";
     }
 }

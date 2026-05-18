@@ -39,7 +39,7 @@ public class Concert {
     private String bannerUrl;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
+    @Column(nullable = false, length = 20, columnDefinition = "varchar(20)")
     @Builder.Default
     private ConcertStatus status = ConcertStatus.DRAFT;
 

@@ -41,6 +41,10 @@ public class ApiResponse<T> {
         return new ApiResponse<>(false, null, message, errorCode);
     }
 
+    public static <T> ApiResponse<T> errorWithData(T data, String message, String errorCode) {
+        return new ApiResponse<>(false, data, message, errorCode);
+    }
+
     public static <T> ApiResponse<T> error(String message) {
         return new ApiResponse<>(false, null, message, "INTERNAL_ERROR");
     }
