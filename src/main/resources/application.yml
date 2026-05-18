@@ -3,9 +3,9 @@ spring:
     name: concert-booking
 
   datasource:
-    url: jdbc:mysql://localhost:3307/concert_booking?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
-    username: concert_user
-    password: concert_pass
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/concert_booking?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
+    username: ${SPRING_DATASOURCE_USERNAME:root}
+    password: ${SPRING_DATASOURCE_PASSWORD:rootpassword}
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
       maximum-pool-size: 20
@@ -28,9 +28,9 @@ spring:
 
   data:
     redis:
-      host: localhost
-      port: 6379
-      password: redis_pass
+      host: ${SPRING_REDIS_HOST:localhost}
+      port: ${SPRING_REDIS_PORT:6379}
+      password: ${SPRING_REDIS_PASSWORD:redis_pass}
       timeout: 5000ms
       lettuce:
         pool:
@@ -41,8 +41,8 @@ spring:
 # JWT config
 app:
   jwt:
-    secret: mySecretKeyForJWTShouldBeAtLeast256BitsLongForHS256Algorithm
-    expiration-ms: 86400000    # 24 hours
+    secret: ${JWT_SECRET:mySecretKeyForJWTShouldBeAtLeast256BitsLongForHS256Algorithm}
+    expiration-ms: ${JWT_EXPIRATION_MS:86400000}    # 24 hours
   booking:
     expiration-minutes: 15     # Booking hết hạn sau 15 phút nếu chưa thanh toán
   redis:

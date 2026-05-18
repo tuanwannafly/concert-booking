@@ -39,8 +39,9 @@ public class SecurityConfig {
         "/api-docs/**",
         "/swagger-ui/**",
         "/swagger-ui.html",
-        "/api/v1/concerts",         // Browse concerts (public)
-        "/api/v1/concerts/{id}",    // Concert detail (public)
+        "/api/v1/concerts",                    // Browse concerts (public)
+        "/api/v1/concerts/{id}",               // Concert detail (public)
+        "/api/v1/concerts/{id}/categories",    // Ticket categories (public)
     };
 
     @Bean

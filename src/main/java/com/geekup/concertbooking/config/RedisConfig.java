@@ -38,18 +38,18 @@ public class RedisConfig {
      * RedisTemplate<String, String> đơn giản hơn
      * Dùng cho: lưu trữ raw string (idempotency key, simple flags)
      */
-    @Bean
-    public RedisTemplate<String, String> stringRedisTemplate(RedisConnectionFactory factory) {
-        RedisTemplate<String, String> template = new RedisTemplate<>();
-        template.setConnectionFactory(factory);
+    // @Bean
+    // public RedisTemplate<String, String> stringRedisTemplate(RedisConnectionFactory factory) {
+    //     RedisTemplate<String, String> template = new RedisTemplate<>();
+    //     template.setConnectionFactory(factory);
 
-        StringRedisSerializer serializer = new StringRedisSerializer();
-        template.setKeySerializer(serializer);
-        template.setValueSerializer(serializer);
-        template.setHashKeySerializer(serializer);
-        template.setHashValueSerializer(serializer);
+    //     StringRedisSerializer serializer = new StringRedisSerializer();
+    //     template.setKeySerializer(serializer);
+    //     template.setValueSerializer(serializer);
+    //     template.setHashKeySerializer(serializer);
+    //     template.setHashValueSerializer(serializer);
 
-        template.afterPropertiesSet();
-        return template;
-    }
+    //     template.afterPropertiesSet();
+    //     return template;
+    // }
 }

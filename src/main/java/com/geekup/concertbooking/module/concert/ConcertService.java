@@ -169,6 +169,40 @@ public class ConcertService {
     }
 
     /**
+     * Re-seed inventory counters vào Redis từ DB source-of-truth.
+     * Dùng khi Redis bị restart và mất toàn bộ inventory keys.
+     * Chỉ OPERATOR/ADMIN mới gọi được (enforce tại Controller).
+     *
+     * Không thay đổi status concert — hoạt động với bất kỳ concert nào đã PUBLISHED.
+     */
+    @Transactional(readOnly = true)
+    public ConcertDetailResponse reloadInventory(Long concertId) {
+        Concert concert = concertRepository.findById(concertId)
+                .orElseThrow(() -> new AppException(ErrorCode.CONCERT_NOT_FOUND));
+
+        if (concert.getStatus() != ConcertStatus.PUBLISHED) {
+            throw new AppException(ErrorCode.INVALID_CONCERT_STATUS,
+                    "Chỉ có thể reload inventory cho concert đang PUBLISHED");
+        }
+
+        List<TicketCategory> categories = ticketCategoryRepository.findByConcertId(concertId);
+        for (TicketCategory category : categories) {
+            String redisKey = getRedisInventoryKey(category.getId());
+            stringRedisTemplate.opsForValue().set(redisKey,
+                    String.valueOf(category.getAvailableQuantity()));
+        }
+
+        log.info("Inventory reloaded to Redis for concert {}: {} categories seeded from DB",
+                concertId, categories.size());
+
+        List<TicketCategoryResponse> categoryResponses = categories.stream()
+                .map(cat -> TicketCategoryResponse.from(cat, cat.getAvailableQuantity().longValue()))
+                .toList();
+
+        return ConcertDetailResponse.from(concert, categoryResponses);
+    }
+
+    /**
      * Thêm loại vé vào concert — chỉ khi concert đang DRAFT.
      */
     @Transactional

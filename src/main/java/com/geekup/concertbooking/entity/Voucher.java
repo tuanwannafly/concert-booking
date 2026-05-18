@@ -30,7 +30,7 @@ public class Voucher {
     private String code;  // FLASHSALE10, VIP20...
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "discount_type", nullable = false, length = 20)
+    @Column(name = "discount_type", nullable = false, length = 20, columnDefinition = "varchar(20)")
     private DiscountType discountType;
 
     /**

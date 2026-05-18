@@ -100,11 +100,17 @@ public class BookingService {
 
         log.debug("Creating booking for user {} concert {}", userId, concert.getId());
 
-        // Validate từng item: load category, kiểm tra maxPerBooking
+        // Validate từng item: load category, kiểm tra maxPerBooking, kiểm tra cùng concert
         List<TicketCategory> categories = new ArrayList<>();
         for (BookingItemRequest itemReq : request.items()) {
             TicketCategory category = ticketCategoryRepository.findById(itemReq.ticketCategoryId())
                 .orElseThrow(() -> new AppException(ErrorCode.TICKET_CATEGORY_NOT_FOUND));
+
+            // Cross-concert guard: tất cả item phải thuộc cùng concert với item đầu tiên
+            if (!category.getConcert().getId().equals(concert.getId())) {
+                throw new AppException(ErrorCode.BOOKING_CROSS_CONCERT,
+                    "Vé '" + category.getName() + "' thuộc concert khác — không được mix vé nhiều concert trong 1 đơn");
+            }
 
             if (itemReq.quantity() > category.getMaxPerBooking()) {
                 throw new AppException(ErrorCode.TICKET_QUANTITY_EXCEEDED,
@@ -131,11 +137,13 @@ public class BookingService {
         Voucher appliedVoucher = null;
         BigDecimal discountAmount = BigDecimal.ZERO;
         BigDecimal finalAmount = totalAmount;
+        String acquiredVoucherLockKey = null;
 
         if (request.voucherCode() != null && !request.voucherCode().isBlank()) {
             VoucherResult voucherResult = validateAndComputeDiscount(request.voucherCode(), userId, totalAmount);
             appliedVoucher = voucherResult.voucher();
             discountAmount = voucherResult.discountAmount();
+            acquiredVoucherLockKey = voucherResult.lockKey();
             finalAmount = totalAmount.subtract(discountAmount);
             log.debug("Voucher {} applied, discount={}", request.voucherCode(), discountAmount);
         }
@@ -221,17 +229,25 @@ public class BookingService {
                     .ticketCategory(category)
                     .quantity(itemReq.quantity())
                     .unitPrice(category.getPrice())  // snapshot giá hiện tại
+                    .subtotal(category.getPrice().multiply(BigDecimal.valueOf(itemReq.quantity())))
                     .build();
                 bookingItems.add(bookingItem);
             }
             booking.getItems().addAll(bookingItems);
 
+            // Save booking trước — CascadeType.ALL tự động persist BookingItems cùng lúc.
+            // Booking phải có ID (được DB assign) trước khi tạo VoucherUsage,
+            // vì VoucherUsage.booking_id là FK → bookings.id.
+            // Save tại đây để tránh TransientPropertyValueException khi voucherUsageRepository.save().
+            savedBooking = bookingRepository.save(booking);
+
             // Apply voucher: save VoucherUsage và tăng usedCount
+            // Phải thực hiện SAU khi booking đã được persist và có ID.
             if (finalAppliedVoucher != null) {
                 VoucherUsage usage = VoucherUsage.builder()
                     .voucher(finalAppliedVoucher)
                     .user(user)
-                    .booking(booking)
+                    .booking(savedBooking)   // dùng savedBooking (đã có ID), không dùng booking
                     .build();
                 voucherUsageRepository.save(usage);
 
@@ -239,8 +255,17 @@ public class BookingService {
                 voucherRepository.save(finalAppliedVoucher);
             }
 
-            // Save booking — UNIQUE(idempotency_key) sẽ throw nếu duplicate race condition
-            savedBooking = bookingRepository.save(booking);
+            // Release distributed voucher lock ngay sau khi DB commit thành công.
+            // DB UNIQUE(voucher_id, user_id) đảm bảo correctness; lock chỉ là UX guard.
+            // Nếu giữ lock đến hết TTL 30s, user retry hợp lệ sẽ nhận "đang xử lý" sai.
+            if (acquiredVoucherLockKey != null) {
+                try {
+                    redisTemplate.delete(acquiredVoucherLockKey);
+                    log.debug("Voucher lock released: {}", acquiredVoucherLockKey);
+                } catch (Exception e) {
+                    log.warn("Failed to release voucher lock {}: {}", acquiredVoucherLockKey, e.getMessage());
+                }
+            }
 
             // Update TicketCategory.availableQuantity trong DB (optimistic lock safety net)
             for (int i = 0; i < request.items().size(); i++) {
@@ -344,7 +369,12 @@ public class BookingService {
             throw new AppException(ErrorCode.BOOKING_EXPIRED);
         }
 
-        // Thực hiện thanh toán
+        // Mock payment: chuyển thẳng sang PAID.
+        // Trong production, flow sẽ là:
+        //   1. POST /pay          → WAITING_PAYMENT  (initiate payment)
+        //   2. Payment gateway webhook → PAID         (confirm payment)
+        // Vì đây là mock endpoint không có gateway thật, gộp 2 bước thành 1
+        // để Postman collection dễ test và tránh nhầm lẫn.
         booking.setStatus(BookingStatus.PAID);
         booking.setPaidAt(LocalDateTime.now());
         bookingRepository.save(booking);
@@ -468,7 +498,7 @@ public class BookingService {
         }
 
         // 6. Redis distributed lock — ngăn 2 request cùng claim voucher này của 1 user
-        String lockKey = "voucher_lock:" + voucher.getId() + ":" + userId;
+        String lockKey = appProperties.getRedis().getVoucherLockKeyPrefix() + voucher.getId() + ":" + userId;
         Boolean lockAcquired = false;
         try {
             lockAcquired = redisTemplate.opsForValue()
@@ -504,7 +534,7 @@ public class BookingService {
         }
 
         log.debug("Voucher {} validated: type={} discount={}", voucherCode, voucher.getDiscountType(), discountAmount);
-        return new VoucherResult(voucher, discountAmount);
+        return new VoucherResult(voucher, discountAmount, lockKey);
     }
 
     /**
@@ -586,6 +616,6 @@ public class BookingService {
     //  INTERNAL RECORDS
     // =========================================================================
 
-    /** Kết quả validate voucher: entity + discount amount đã tính. */
-    private record VoucherResult(Voucher voucher, BigDecimal discountAmount) {}
+    /** Kết quả validate voucher: entity + discount amount đã tính + Redis lock key cần release. */
+    private record VoucherResult(Voucher voucher, BigDecimal discountAmount, String lockKey) {}
 }

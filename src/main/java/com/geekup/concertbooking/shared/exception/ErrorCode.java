@@ -20,6 +20,7 @@ public enum ErrorCode {
     CONCERT_NOT_FOUND       (HttpStatus.NOT_FOUND,     "Không tìm thấy concert"),
     CONCERT_NOT_PUBLISHED   (HttpStatus.BAD_REQUEST,   "Concert chưa được public"),
     INVALID_CONCERT_STATUS  (HttpStatus.BAD_REQUEST,   "Trạng thái concert không hợp lệ cho thao tác này"),
+    BOOKING_CROSS_CONCERT   (HttpStatus.BAD_REQUEST,   "Tất cả vé trong một đơn phải thuộc cùng một concert"),
 
     // Ticket Category
     TICKET_CATEGORY_NOT_FOUND  (HttpStatus.NOT_FOUND,  "Không tìm thấy loại vé"),

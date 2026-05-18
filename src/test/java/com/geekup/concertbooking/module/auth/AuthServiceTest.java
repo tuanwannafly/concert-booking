@@ -13,7 +13,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
-
+import org.springframework.test.util.ReflectionTestUtils;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
@@ -38,10 +38,12 @@ class AuthServiceTest {
     @Test
     void register_duplicateEmail_throwsAppException() {
         // Arrange — email already registered in the system
+        // RegisterRequest dùng @Getter + @NoArgsConstructor (không có setter)
+        // → dùng ReflectionTestUtils để set field trực tiếp
         RegisterRequest request = new RegisterRequest();
-        request.setEmail("existing@test.com");
-        request.setPassword("password123");
-        request.setFullName("Existing User");
+        ReflectionTestUtils.setField(request, "email",    "existing@test.com");
+        ReflectionTestUtils.setField(request, "password", "password123");
+        ReflectionTestUtils.setField(request, "fullName", "Existing User");
 
         given(userRepository.existsByEmail("existing@test.com")).willReturn(true);
 
@@ -63,8 +65,8 @@ class AuthServiceTest {
     void login_wrongPassword_throwsAppException() {
         // Arrange — AuthenticationManager rejects credentials with BadCredentialsException
         LoginRequest request = new LoginRequest();
-        request.setEmail("customer1@test.com");
-        request.setPassword("wrongPassword");
+        ReflectionTestUtils.setField(request, "email",    "customer1@test.com");
+        ReflectionTestUtils.setField(request, "password", "wrongPassword");
 
         given(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
                 .willThrow(new BadCredentialsException("Bad credentials"));

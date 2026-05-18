@@ -83,4 +83,20 @@ public class OpsConcertController {
                 .status(HttpStatus.CREATED)
                 .body(ApiResponse.success(response, "Thêm loại vé thành công"));
     }
+
+    @Operation(
+        summary = "Reload inventory từ DB vào Redis",
+        description = """
+            Re-seed inventory counters vào Redis từ DB source-of-truth.
+            Dùng khi Redis bị restart và mất toàn bộ inventory keys.
+            Concert phải đang PUBLISHED. Không thay đổi trạng thái concert.
+            """
+    )
+    @PostMapping("/{id}/reload-inventory")
+    public ResponseEntity<ApiResponse<ConcertDetailResponse>> reloadInventory(
+            @Parameter(description = "Concert ID") @PathVariable Long id) {
+
+        ConcertDetailResponse response = concertService.reloadInventory(id);
+        return ResponseEntity.ok(ApiResponse.success(response, "Đã reload inventory thành công từ DB"));
+    }
 }

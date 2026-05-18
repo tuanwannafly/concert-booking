@@ -58,7 +58,7 @@ class BookingServiceTest {
     private User mockUser;
     private Concert mockConcert;
     private TicketCategory mockCategory;
-    private AppProperties.Redis mockRedisProps;
+    private AppProperties.RedisProperties mockRedisProps;
     private AppProperties.Booking mockBookingProps;
 
     @BeforeEach
@@ -89,11 +89,11 @@ class BookingServiceTest {
                 .build();
 
         // Stub AppProperties
-        mockRedisProps = new AppProperties.Redis();
+        mockRedisProps = new AppProperties.RedisProperties();
         mockBookingProps = new AppProperties.Booking();
-        given(appProperties.getRedis()).willReturn(mockRedisProps);
-        given(appProperties.getBooking()).willReturn(mockBookingProps);
-        given(redisTemplate.opsForValue()).willReturn(valueOperations);
+        lenient().when(appProperties.getRedis()).thenReturn(mockRedisProps);
+        lenient().when(appProperties.getBooking()).thenReturn(mockBookingProps);
+        lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
     }
 
     // ── helpers ──────────────────────────────────────────────────────────────
